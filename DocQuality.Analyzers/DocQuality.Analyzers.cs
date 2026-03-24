@@ -23,7 +23,7 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
         context.EnableConcurrentExecution();
 
         context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
@@ -48,12 +48,15 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
         var memberName = method.Identifier.Text;
 
-        AnalyzeSummary(context, docComment, memberName);
-        AnalyzeParams(context, docComment, memberName, method.ParameterList);
-        AnalyzeReturns(context, docComment, memberName, method.ReturnType);
-        AnalyzeExceptions(context, docComment, memberName);
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeParams(context, options, tree, docComment, memberName, method.ParameterList);
+        AnalyzeReturns(context, options, tree, docComment, memberName, method.ReturnType);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
     }
 
     private static void AnalyzeConstructor(SyntaxNodeAnalysisContext context)
@@ -73,11 +76,14 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
         var memberName = constructor.Identifier.Text;
 
-        AnalyzeSummary(context, docComment, memberName);
-        AnalyzeParams(context, docComment, memberName, constructor.ParameterList);
-        AnalyzeExceptions(context, docComment, memberName);
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeParams(context, options, tree, docComment, memberName, constructor.ParameterList);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
     }
 
     private static void AnalyzeProperty(SyntaxNodeAnalysisContext context)
@@ -97,10 +103,13 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
         var memberName = property.Identifier.Text;
 
-        AnalyzeSummary(context, docComment, memberName);
-        AnalyzeExceptions(context, docComment, memberName);
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
     }
 
     private static bool IsPublicAndEligible(SyntaxTokenList modifiers, MemberDeclarationSyntax member)
@@ -148,9 +157,24 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeSummary(
         SyntaxNodeAnalysisContext context,
+        AnalyzerConfigOptionsProvider options,
+        SyntaxTree tree,
         DocumentationCommentTriviaSyntax docComment,
         string memberName)
     {
+        var requireSummary = AnalyzerConfigHelper.GetBool(
+            options, tree, "dotnet_diagnostic.DOC001.require_summary", true);
+
+        if (!requireSummary)
+        {
+            return;
+        }
+
+        if (IsExcludedGeneratedCode(options, tree, "DOC001"))
+        {
+            return;
+        }
+
         foreach (var node in docComment.Content)
         {
             if (node is XmlElementSyntax element
@@ -169,6 +193,8 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeParams(
         SyntaxNodeAnalysisContext context,
+        AnalyzerConfigOptionsProvider options,
+        SyntaxTree tree,
         DocumentationCommentTriviaSyntax docComment,
         string memberName,
         ParameterListSyntax? parameterList)
@@ -177,6 +203,16 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
         {
             return;
         }
+
+        var requireParam = AnalyzerConfigHelper.GetBool(
+            options, tree, "dotnet_diagnostic.DOC002.require_param", true);
+        var requireParamDescription = AnalyzerConfigHelper.GetBool(
+            options, tree, "dotnet_diagnostic.DOC002.require_param_description", true);
+        _ = AnalyzerConfigHelper.GetBool(
+            options, tree, "dotnet_diagnostic.DOC003.require_returns", true);
+
+        var doc002Excluded = IsExcludedGeneratedCode(options, tree, "DOC002");
+        var doc003Excluded = IsExcludedGeneratedCode(options, tree, "DOC003");
 
         var documentedParams = new HashSet<string>(StringComparer.Ordinal);
 
@@ -208,12 +244,17 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
             {
                 documentedParams.Add(paramName);
 
-                if (isEmpty)
+                if (requireParamDescription && isEmpty && !doc002Excluded)
                 {
                     context.ReportDiagnostic(
                         Diagnostic.Create(DiagnosticDescriptors._doc002, location!, memberName, paramName));
                 }
             }
+        }
+
+        if (!requireParam || doc003Excluded)
+        {
+            return;
         }
 
         foreach (var parameter in parameterList.Parameters)
@@ -230,11 +271,26 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeReturns(
         SyntaxNodeAnalysisContext context,
+        AnalyzerConfigOptionsProvider options,
+        SyntaxTree tree,
         DocumentationCommentTriviaSyntax docComment,
         string memberName,
         TypeSyntax returnType)
     {
+        var requireReturns = AnalyzerConfigHelper.GetBool(
+            options, tree, "dotnet_diagnostic.DOC003.require_returns", true);
+
+        if (!requireReturns)
+        {
+            return;
+        }
+
         if (IsVoidOrTaskLike(returnType))
+        {
+            return;
+        }
+
+        if (IsExcludedGeneratedCode(options, tree, "DOC004"))
         {
             return;
         }
@@ -278,9 +334,16 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeExceptions(
         SyntaxNodeAnalysisContext context,
+        AnalyzerConfigOptionsProvider options,
+        SyntaxTree tree,
         DocumentationCommentTriviaSyntax docComment,
         string memberName)
     {
+        if (IsExcludedGeneratedCode(options, tree, "DOC005"))
+        {
+            return;
+        }
+
         foreach (var node in docComment.Content)
         {
             if (node is XmlElementSyntax element
@@ -340,6 +403,52 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    private static bool IsExcludedGeneratedCode(
+        AnalyzerConfigOptionsProvider options,
+        SyntaxTree tree,
+        string diagnosticId)
+    {
+        var excludeGenerated = AnalyzerConfigHelper.GetBool(
+            options, tree, $"dotnet_diagnostic.{diagnosticId}.exclude_generated_code", false);
+
+        return excludeGenerated && IsGeneratedCode(tree);
+    }
+
+    private static bool IsGeneratedCode(SyntaxTree tree)
+    {
+        var filePath = tree.FilePath;
+
+        if (!string.IsNullOrEmpty(filePath))
+        {
+            if (filePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase)
+                || filePath.EndsWith(".designer.cs", StringComparison.OrdinalIgnoreCase)
+                || filePath.EndsWith(".generated.cs", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        var root = tree.GetRoot();
+
+        foreach (var attrList in root.DescendantNodes())
+        {
+            if (attrList is AttributeSyntax attr)
+            {
+                var name = attr.Name.ToString();
+
+                if (name == "GeneratedCode"
+                    || name == "GeneratedCodeAttribute"
+                    || name.EndsWith(".GeneratedCode", StringComparison.Ordinal)
+                    || name.EndsWith(".GeneratedCodeAttribute", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool IsVoidOrTaskLike(TypeSyntax returnType)
