@@ -2,6 +2,7 @@
   <Folder Name="/Solution Items/">
     <File Path="Directory.Packages.props" />
     <File Path="LICENSE" />
+    <File Path="logo.png" />
     <File Path="logo.svg" />
     <File Path="README.md" />
   </Folder>

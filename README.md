@@ -117,7 +117,7 @@ Contributions are very welcome! The project is in early development and there's 
 To get started:
 
 ```shell
-git clone https://github.com/your-username/DocQuality.Analyzers.git
+git clone https://github.com/rubenseggers/DocQuality.Analyzers.git
 cd DocQuality.Analyzers
 dotnet build
 dotnet test

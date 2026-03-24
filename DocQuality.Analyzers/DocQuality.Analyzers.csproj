@@ -15,12 +15,12 @@
 
     <!-- NuGet metadata -->
     <PackageId>DocQuality.Analyzers</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>Edodes</Authors>
     <Description>Roslyn analyzers that enforce XML documentation comment quality on public C# members. Catch empty tags, missing parameters, undocumented return values, and more — at compile time.</Description>
     <Copyright>Copyright (c) 2026 Edodes</Copyright>
     <PackageProjectUrl>https://github.com/rubenseggers/DocQuality.Analyzers</PackageProjectUrl>
-    <PackageIcon>logo.svg</PackageIcon>
+    <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/rubenseggers/DocQuality.Analyzers</RepositoryUrl>
@@ -31,7 +31,7 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\"/>
-    <None Include="..\logo.svg" Pack="true" PackagePath="\"/>
+    <None Include="..\logo.png" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
   <ItemGroup>
