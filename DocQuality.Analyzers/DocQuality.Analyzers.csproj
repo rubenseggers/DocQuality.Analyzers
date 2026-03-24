@@ -13,16 +13,25 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 
-    <!-- NuGet metadata (optional, for packaging) -->
+    <!-- NuGet metadata -->
     <PackageId>DocQuality.Analyzers</PackageId>
     <Version>0.1.1</Version>
-    <Description>Roslyn analyzer for XML documentation comment quality.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Edodes</Authors>
+    <Description>Roslyn analyzers that enforce XML documentation comment quality on public C# members. Catch empty tags, missing parameters, undocumented return values, and more — at compile time.</Description>
+    <Copyright>Copyright (c) 2026 Edodes</Copyright>
+    <PackageProjectUrl>https://github.com/rubenseggers/DocQuality.Analyzers</PackageProjectUrl>
+    <PackageIcon>logo.svg</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/rubenseggers/DocQuality.Analyzers</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>roslyn analyzer documentation xml-doc code-quality csharp dotnet</PackageTags>
+    <PackageReleaseNotes>Initial release — DOC001 through DOC005 diagnostics for XML documentation comment quality.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\"/>
+    <None Include="..\logo.svg" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
   <ItemGroup>

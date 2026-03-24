@@ -8,6 +8,30 @@ Roslyn analyzers that enforce XML documentation comment quality on public C# mem
 
 ---
 
+## Motivation
+
+C# already ships two compiler warnings that encourage XML documentation:
+
+| Warning | What it catches |
+|---------|-----------------|
+| [CS1591](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/cs1591) | A publicly visible type or member has **no** XML comment at all |
+| [CS1573](https://learn.microsoft.com/en-us/dotnet/csharp/misc/cs1573) | A method has XML comments for **some** parameters but not all of them |
+
+These warnings are useful, but they only check whether a comment **exists** — not whether it actually says anything meaningful. In practice, many tools (IDE snippets, AI assistants, "generate XML doc" refactorings) auto-generate documentation stubs like:
+
+```csharp
+/// <summary></summary>
+/// <param name="value"></param>
+/// <returns></returns>
+public int Process(int value) { … }
+```
+
+This satisfies CS1591 and CS1573 — no compiler warnings — yet the documentation is completely empty. Consumers see blank tooltips and generated API docs with no descriptions.
+
+**DocQuality.Analyzers bridges that gap.** It works alongside CS1591 and CS1573 by verifying that the documentation content is actually filled in: summaries are not empty, every `<param>` tag contains a description, `<returns>` is present and non-blank, and so on. Together, the built-in warnings ensure documentation *exists*, and DocQuality ensures it is *meaningful*.
+
+---
+
 ## Diagnostics
 
 | ID | Severity | Description |
