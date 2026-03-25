@@ -5,15 +5,15 @@
 # Diagnostic severity defaults
 dotnet_diagnostic.DOC001.severity = warning
 dotnet_diagnostic.DOC002.severity = warning
-dotnet_diagnostic.DOC003.severity = suggestion
+dotnet_diagnostic.DOC003.severity = warning
 dotnet_diagnostic.DOC004.severity = warning
-dotnet_diagnostic.DOC005.severity = suggestion
+dotnet_diagnostic.DOC005.severity = warning
 
 # Behavior configuration
 dotnet_diagnostic.DOC001.require_summary = true
 dotnet_diagnostic.DOC002.require_param = true
 dotnet_diagnostic.DOC002.require_param_description = true
-dotnet_diagnostic.DOC003.require_returns = true
+dotnet_diagnostic.DOC004.require_returns = true
 
 # Noise reduction
 dotnet_diagnostic.DOC001.exclude_generated_code = true

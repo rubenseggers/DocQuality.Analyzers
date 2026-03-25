@@ -34,15 +34,36 @@ This satisfies CS1591 and CS1573 — no compiler warnings — yet the documentat
 
 ## Diagnostics
 
-| ID | Severity | Description |
-|----|----------|-------------|
+| ID | Default Severity | Description |
+|----|------------------|-------------|
 | DOC001 | Warning | `<summary>` tag is empty or whitespace-only |
 | DOC002 | Warning | `<param>` tag is empty or whitespace-only |
 | DOC003 | Warning | Parameter has no corresponding `<param>` tag |
 | DOC004 | Warning | Non-void member is missing a `<returns>` tag, or the tag is empty |
 | DOC005 | Warning | `<exception>` tag is empty or whitespace-only |
 
-All diagnostics target **public members only** and are enabled by default.
+### Which diagnostics apply where?
+
+| Declaration kind | DOC001 | DOC002 | DOC003 | DOC004 | DOC005 |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Class | ✓ | ✓¹ | ✓¹ | | ✓ |
+| Struct | ✓ | ✓¹ | ✓¹ | | ✓ |
+| Record / Record struct | ✓ | ✓ | ✓ | | ✓ |
+| Interface | ✓ | | | | ✓ |
+| Enum | ✓ | | | | |
+| Delegate | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Method | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Constructor | ✓ | ✓ | ✓ | | ✓ |
+| Property | ✓ | | | | ✓ |
+| Indexer | ✓ | ✓ | ✓ | | ✓ |
+| Field | ✓ | | | | |
+| Event / Event field | ✓ | | | | ✓ |
+| Operator | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Conversion operator | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+¹ Only when the type has a primary constructor (C# 12+).
+
+All diagnostics target **public members only** and are enabled by default. Members marked with `override` or `<inheritdoc />` are skipped.
 
 ---
 
@@ -58,22 +79,29 @@ Or via the NuGet Package Manager in Visual Studio.
 
 ## Usage
 
-Once installed, the analyzer runs automatically as part of your build. Violations appear as warnings in your IDE and build output.
+Once installed, the analyzer runs automatically as part of your build. Violations appear as warnings (or suggestions) in your IDE and build output.
 
-**Example — DOC001:**
+**Example — DOC001 (empty summary on a class):**
+```csharp
+/// <summary></summary>  // ⚠️ DOC001: Summary tag is empty
+public class MyService { }
+```
+
+**Example — DOC001 (empty summary on a method):**
 ```csharp
 /// <summary></summary>  // ⚠️ DOC001: Summary tag is empty
 public void DoSomething() { }
 ```
 
-**Example — DOC003:**
+**Example — DOC003 (missing param on a record):**
 ```csharp
-/// <summary>Does something important.</summary>
-// ⚠️ DOC003: Parameter 'value' has no corresponding <param> tag
-public void DoSomething(int value) { }
+/// <summary>Represents a person.</summary>
+// ⚠️ DOC003: Parameter 'Name' has no corresponding <param> tag
+// ⚠️ DOC003: Parameter 'Age' has no corresponding <param> tag
+public record Person(string Name, int Age);
 ```
 
-**Example — DOC004:**
+**Example — DOC004 (missing returns on a method):**
 ```csharp
 /// <summary>Gets the current count.</summary>
 // ⚠️ DOC004: Returns a value but has no <returns> tag
@@ -95,6 +123,8 @@ public void DoSomething() { }
 
 ## Configuration
 
+### Severity
+
 Severity levels can be adjusted in your `.editorconfig`:
 
 ```ini
@@ -102,6 +132,64 @@ Severity levels can be adjusted in your `.editorconfig`:
 dotnet_diagnostic.DOC001.severity = error
 dotnet_diagnostic.DOC003.severity = none
 ```
+
+### Behavior options
+
+The following `.editorconfig` options control which checks are active:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dotnet_diagnostic.DOC001.require_summary` | `true` | Set to `false` to disable DOC001 entirely (empty `<summary>` tags are allowed). |
+| `dotnet_diagnostic.DOC002.require_param` | `true` | Set to `false` to disable DOC003 (missing `<param>` tags are allowed). |
+| `dotnet_diagnostic.DOC002.require_param_description` | `true` | Set to `false` to disable DOC002 (empty `<param>` tags are allowed). |
+| `dotnet_diagnostic.DOC004.require_returns` | `true` | Set to `false` to disable DOC004 (missing or empty `<returns>` tags are allowed). |
+
+### Generated code exclusion
+
+By default, all diagnostics run on generated files too. You can exclude generated code (files ending in `.g.cs`, `.designer.cs`, `.generated.cs`, or containing `[GeneratedCode]`) per-diagnostic:
+
+| Option | Default |
+|--------|---------|
+| `dotnet_diagnostic.DOC001.exclude_generated_code` | `true`* |
+| `dotnet_diagnostic.DOC002.exclude_generated_code` | `true`* |
+| `dotnet_diagnostic.DOC003.exclude_generated_code` | `false` |
+| `dotnet_diagnostic.DOC004.exclude_generated_code` | `false` |
+| `dotnet_diagnostic.DOC005.exclude_generated_code` | `false` |
+
+*\* These defaults are set in the `.editorconfig` shipped with the package. The analyzer's built-in default is `false`; the packaged `.editorconfig` overrides DOC001 and DOC002 to `true`.*
+
+### Example `.editorconfig`
+
+```ini
+[*.cs]
+# Promote empty-summary to an error
+dotnet_diagnostic.DOC001.severity = error
+
+# Disable the missing-param-tag check
+dotnet_diagnostic.DOC003.severity = none
+
+# Don't require <returns> tags
+dotnet_diagnostic.DOC004.require_returns = false
+
+# Exclude generated code from DOC005
+dotnet_diagnostic.DOC005.exclude_generated_code = true
+```
+
+---
+
+## Code fixes
+
+The analyzer ships with code fixes for all five diagnostics:
+
+| Diagnostic | Code fix |
+|------------|----------|
+| DOC001 | Fills the empty `<summary>` tag with placeholder text |
+| DOC002 | Fills the empty `<param>` tag with placeholder text |
+| DOC003 | Adds a new `<param>` tag for the undocumented parameter |
+| DOC004 | Fills the empty `<returns>` tag, or adds a new one if missing |
+| DOC005 | Fills the empty `<exception>` tag with placeholder text |
+
+All code fixes insert `TODO: document this` as placeholder text.
 
 ---
 

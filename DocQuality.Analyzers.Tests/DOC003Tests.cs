@@ -118,4 +118,68 @@ public class DOC003Tests
         var test = AnalyzerVerifier.CreateTest(source);
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
+
+    [Fact]
+    public async Task RecordMissingParamTag_ReportsDiagnostic()
+    {
+        const string source = """
+            /// <summary>A record.</summary>
+            public record MyRecord(string Name);
+            """;
+
+        var test = AnalyzerVerifier.CreateTest(source,
+            AnalyzerVerifier.Diagnostic(DiagnosticDescriptors._doc003)
+                .WithSeverity(DiagnosticSeverity.Warning)
+                .WithSpan(2, 24, 2, 35)
+                .WithArguments("MyRecord", "Name"));
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task RecordAllParamsDocumented_NoDiagnostic()
+    {
+        const string source = """
+            /// <summary>A record.</summary>
+            /// <param name="Name">The name.</param>
+            public record MyRecord(string Name);
+            """;
+
+        var test = AnalyzerVerifier.CreateTest(source);
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task DelegateMissingParamTag_ReportsDiagnostic()
+    {
+        const string source = """
+            /// <summary>A delegate.</summary>
+            public delegate void MyDelegate(int value);
+            """;
+
+        var test = AnalyzerVerifier.CreateTest(source,
+            AnalyzerVerifier.Diagnostic(DiagnosticDescriptors._doc003)
+                .WithSeverity(DiagnosticSeverity.Warning)
+                .WithSpan(2, 33, 2, 42)
+                .WithArguments("MyDelegate", "value"));
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task IndexerMissingParamTag_ReportsDiagnostic()
+    {
+        const string source = """
+            public class MyClass
+            {
+                /// <summary>Gets an item.</summary>
+                public int this[int index] => index;
+            }
+            """;
+
+        var test = AnalyzerVerifier.CreateTest(source,
+            AnalyzerVerifier.Diagnostic(DiagnosticDescriptors._doc003)
+                .WithSeverity(DiagnosticSeverity.Warning)
+                .WithSpan(4, 21, 4, 30)
+                .WithArguments("this", "index"));
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
 }

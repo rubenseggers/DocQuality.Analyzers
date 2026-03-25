@@ -29,6 +29,20 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeConstructor, SyntaxKind.ConstructorDeclaration);
         context.RegisterSyntaxNodeAction(AnalyzeProperty, SyntaxKind.PropertyDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeTypeDeclaration,
+            SyntaxKind.ClassDeclaration,
+            SyntaxKind.StructDeclaration,
+            SyntaxKind.InterfaceDeclaration,
+            SyntaxKind.EnumDeclaration,
+            SyntaxKind.RecordDeclaration,
+            SyntaxKind.RecordStructDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeDelegate, SyntaxKind.DelegateDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeIndexer, SyntaxKind.IndexerDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeEvent, SyntaxKind.EventDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeEventField, SyntaxKind.EventFieldDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeField, SyntaxKind.FieldDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeOperator, SyntaxKind.OperatorDeclaration);
+        context.RegisterSyntaxNodeAction(AnalyzeConversionOperator, SyntaxKind.ConversionOperatorDeclaration);
     }
 
     private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
@@ -112,13 +126,237 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
         AnalyzeExceptions(context, options, tree, docComment, memberName);
     }
 
+    private static void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
+    {
+        var typeDecl = (BaseTypeDeclarationSyntax)context.Node;
+
+        if (!typeDecl.Modifiers.Any(SyntaxKind.PublicKeyword))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(typeDecl);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = typeDecl.Identifier.Text;
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+
+        if (typeDecl is TypeDeclarationSyntax typeWithParams
+            && typeWithParams.ParameterList != null)
+        {
+            AnalyzeParams(context, options, tree, docComment, memberName, typeWithParams.ParameterList);
+        }
+    }
+
+    private static void AnalyzeDelegate(SyntaxNodeAnalysisContext context)
+    {
+        var delegateDecl = (DelegateDeclarationSyntax)context.Node;
+
+        if (!delegateDecl.Modifiers.Any(SyntaxKind.PublicKeyword))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(delegateDecl);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = delegateDecl.Identifier.Text;
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeParams(context, options, tree, docComment, memberName, delegateDecl.ParameterList);
+        AnalyzeReturns(context, options, tree, docComment, memberName, delegateDecl.ReturnType);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+    }
+
+    private static void AnalyzeIndexer(SyntaxNodeAnalysisContext context)
+    {
+        var indexer = (IndexerDeclarationSyntax)context.Node;
+
+        if (!IsPublicAndEligible(indexer.Modifiers, indexer))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(indexer);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = "this";
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeParams(context, options, tree, docComment, memberName, indexer.ParameterList);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+    }
+
+    private static void AnalyzeEvent(SyntaxNodeAnalysisContext context)
+    {
+        var eventDecl = (EventDeclarationSyntax)context.Node;
+
+        if (!IsPublicAndEligible(eventDecl.Modifiers, eventDecl))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(eventDecl);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = eventDecl.Identifier.Text;
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+    }
+
+    private static void AnalyzeEventField(SyntaxNodeAnalysisContext context)
+    {
+        var eventField = (EventFieldDeclarationSyntax)context.Node;
+
+        if (!eventField.Modifiers.Any(SyntaxKind.PublicKeyword)
+            || eventField.Modifiers.Any(SyntaxKind.OverrideKeyword))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(eventField);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = eventField.Declaration.Variables.Count > 0
+            ? eventField.Declaration.Variables[0].Identifier.Text
+            : "event";
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+    }
+
+    private static void AnalyzeField(SyntaxNodeAnalysisContext context)
+    {
+        var field = (FieldDeclarationSyntax)context.Node;
+
+        if (!field.Modifiers.Any(SyntaxKind.PublicKeyword))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(field);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = field.Declaration.Variables.Count > 0
+            ? field.Declaration.Variables[0].Identifier.Text
+            : "field";
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+    }
+
+    private static void AnalyzeOperator(SyntaxNodeAnalysisContext context)
+    {
+        var operatorDecl = (OperatorDeclarationSyntax)context.Node;
+
+        if (!IsPublicAndEligible(operatorDecl.Modifiers, operatorDecl))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(operatorDecl);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = "operator " + operatorDecl.OperatorToken.Text;
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeParams(context, options, tree, docComment, memberName, operatorDecl.ParameterList);
+        AnalyzeReturns(context, options, tree, docComment, memberName, operatorDecl.ReturnType);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+    }
+
+    private static void AnalyzeConversionOperator(SyntaxNodeAnalysisContext context)
+    {
+        var conversionDecl = (ConversionOperatorDeclarationSyntax)context.Node;
+
+        if (!IsPublicAndEligible(conversionDecl.Modifiers, conversionDecl))
+        {
+            return;
+        }
+
+        var docComment = GetDocComment(conversionDecl);
+
+        if (docComment == null
+            || HasInheritDoc(docComment))
+        {
+            return;
+        }
+
+        var options = context.Options.AnalyzerConfigOptionsProvider;
+        var tree = context.Node.SyntaxTree;
+
+        var memberName = conversionDecl.ImplicitOrExplicitKeyword.Text + " operator " + conversionDecl.Type;
+
+        AnalyzeSummary(context, options, tree, docComment, memberName);
+        AnalyzeParams(context, options, tree, docComment, memberName, conversionDecl.ParameterList);
+        AnalyzeReturns(context, options, tree, docComment, memberName, conversionDecl.Type);
+        AnalyzeExceptions(context, options, tree, docComment, memberName);
+    }
+
     private static bool IsPublicAndEligible(SyntaxTokenList modifiers, MemberDeclarationSyntax member)
     {
         return modifiers.Any(SyntaxKind.PublicKeyword)
             && !modifiers.Any(SyntaxKind.OverrideKeyword)
-            && !modifiers.Any(SyntaxKind.PartialKeyword)
-            && !(member is MethodDeclarationSyntax method
-            && method.Modifiers.Any(SyntaxKind.PartialKeyword));
+            && !(member is MethodDeclarationSyntax
+                && modifiers.Any(SyntaxKind.PartialKeyword));
     }
 
     private static DocumentationCommentTriviaSyntax? GetDocComment(SyntaxNode node)
@@ -197,7 +435,7 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
         SyntaxTree tree,
         DocumentationCommentTriviaSyntax docComment,
         string memberName,
-        ParameterListSyntax? parameterList)
+        BaseParameterListSyntax? parameterList)
     {
         if (parameterList == null)
         {
@@ -208,8 +446,6 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
             options, tree, "dotnet_diagnostic.DOC002.require_param", true);
         var requireParamDescription = AnalyzerConfigHelper.GetBool(
             options, tree, "dotnet_diagnostic.DOC002.require_param_description", true);
-        _ = AnalyzerConfigHelper.GetBool(
-            options, tree, "dotnet_diagnostic.DOC003.require_returns", true);
 
         var doc002Excluded = IsExcludedGeneratedCode(options, tree, "DOC002");
         var doc003Excluded = IsExcludedGeneratedCode(options, tree, "DOC003");
@@ -278,7 +514,7 @@ public sealed class DocAnalyzer : DiagnosticAnalyzer
         TypeSyntax returnType)
     {
         var requireReturns = AnalyzerConfigHelper.GetBool(
-            options, tree, "dotnet_diagnostic.DOC003.require_returns", true);
+            options, tree, "dotnet_diagnostic.DOC004.require_returns", true);
 
         if (!requireReturns)
         {

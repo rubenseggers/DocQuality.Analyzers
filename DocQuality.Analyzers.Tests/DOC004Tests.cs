@@ -176,4 +176,32 @@ public class DOC004Tests
         var test = AnalyzerVerifier.CreateTest(source);
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
+
+    [Fact]
+    public async Task DelegateMissingReturns_ReportsDiagnostic()
+    {
+        const string source = """
+            /// <summary>A delegate.</summary>
+            public delegate int MyDelegate();
+            """;
+
+        var test = AnalyzerVerifier.CreateTest(source,
+            AnalyzerVerifier.Diagnostic(DiagnosticDescriptors._doc004)
+                .WithSeverity(DiagnosticSeverity.Warning)
+                .WithSpan(2, 17, 2, 20)
+                .WithArguments("MyDelegate"));
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task VoidDelegate_NoDiagnostic()
+    {
+        const string source = """
+            /// <summary>A delegate.</summary>
+            public delegate void MyDelegate();
+            """;
+
+        var test = AnalyzerVerifier.CreateTest(source);
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
 }
